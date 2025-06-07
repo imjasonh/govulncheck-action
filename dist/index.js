@@ -20,6 +20,7 @@ async function run(dependencies = {}) {
 
     // Change to working directory
     if (workingDirectory !== '.') {
+      core.info(`Changing working directory to: ${workingDirectory}`);
       process.chdir(workingDirectory);
     }
 
