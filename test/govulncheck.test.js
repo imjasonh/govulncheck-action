@@ -13,18 +13,33 @@ describe('GovulncheckRunner', () => {
 
   describe('install', () => {
     it('should install govulncheck using go install', async () => {
-      mockExec.exec.mockResolvedValue(0);
+      // First call to check if govulncheck exists will fail
+      mockExec.exec.mockRejectedValueOnce(new Error('govulncheck not found'));
+      // Second call to install will succeed
+      mockExec.exec.mockResolvedValueOnce(0);
       
       await runner.install();
       
-      expect(mockExec.exec).toHaveBeenCalledWith(
-        'go',
-        ['install', 'golang.org/x/vuln/cmd/govulncheck@latest']
-      );
+      expect(mockExec.exec).toHaveBeenCalledTimes(2);
+      expect(mockExec.exec).toHaveBeenNthCalledWith(1, 'govulncheck', ['-version']);
+      expect(mockExec.exec).toHaveBeenNthCalledWith(2, 'go', ['install', 'golang.org/x/vuln/cmd/govulncheck@latest']);
+    });
+
+    it('should skip installation if govulncheck is already installed', async () => {
+      // First call to check if govulncheck exists will succeed
+      mockExec.exec.mockResolvedValueOnce(0);
+      
+      await runner.install();
+      
+      expect(mockExec.exec).toHaveBeenCalledTimes(1);
+      expect(mockExec.exec).toHaveBeenCalledWith('govulncheck', ['-version']);
     });
 
     it('should throw error if installation fails', async () => {
-      mockExec.exec.mockRejectedValue(new Error('Installation failed'));
+      // First call to check if govulncheck exists will fail
+      mockExec.exec.mockRejectedValueOnce(new Error('govulncheck not found'));
+      // Second call to install will also fail
+      mockExec.exec.mockRejectedValueOnce(new Error('Installation failed'));
       
       await expect(runner.install()).rejects.toThrow('Installation failed');
     });

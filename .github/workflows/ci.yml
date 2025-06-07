@@ -25,7 +25,7 @@ jobs:
         run: npm test
       
       - name: Check test coverage
-        run: npm run coverage
+        run: npm run test:coverage
 
   dist-check:
     runs-on: ubuntu-latest
