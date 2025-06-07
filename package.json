@@ -1,7 +1,7 @@
 {
-  "name": "my-github-action",
+  "name": "govulncheck-action",
   "version": "1.0.0",
-  "description": "A minimal GitHub Action implemented in Node.js",
+  "description": "GitHub Action to run govulncheck and annotate vulnerabilities",
   "main": "index.js",
   "scripts": {
     "build": "ncc build index.js -o dist",
