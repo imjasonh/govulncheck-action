@@ -1,0 +1,14 @@
+node_modules/
+*.log
+.DS_Store
+.env
+coverage/
+.vscode/
+.idea/
+
+# Go binaries
+example/example
+*.exe
+*.dll
+*.so
+*.dylib

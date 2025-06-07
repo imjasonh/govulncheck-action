@@ -1,0 +1,19 @@
+name: 'Go Vulnerability Check'
+description: 'Run govulncheck and annotate vulnerable dependencies and code'
+author: 'Your Name'
+
+inputs:
+  working-directory:
+    description: 'Directory to run govulncheck in'
+    required: false
+    default: '.'
+
+outputs:
+  vulnerabilities-found:
+    description: 'Whether vulnerabilities were found'
+  vulnerability-count:
+    description: 'Number of vulnerabilities found'
+
+runs:
+  using: 'node20'
+  main: 'index.js'

@@ -1,0 +1,77 @@
+name: Example Vulnerability Check
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  check-example:
+    name: Check Example for Vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      
+      - name: Run govulncheck on example
+        id: govulncheck
+        uses: ./
+        with:
+          working-directory: './example'
+      
+      - name: Report vulnerability scan results
+        if: always()
+        run: |
+          echo "## Vulnerability Scan Results"
+          echo "- Vulnerabilities found: ${{ steps.govulncheck.outputs.vulnerabilities-found }}"
+          echo "- Vulnerability count: ${{ steps.govulncheck.outputs.vulnerability-count }}"
+          
+          if [ "${{ steps.govulncheck.outputs.vulnerabilities-found }}" == "true" ]; then
+            echo ""
+            echo "⚠️ Security vulnerabilities were detected in the example code."
+            echo "This is expected! The example intentionally uses a vulnerable version of golang.org/x/net"
+            echo "to demonstrate how the action creates annotations."
+          else
+            echo ""
+            echo "✅ No vulnerabilities found (this would be unexpected for the example)."
+          fi
+      
+      # Note: We don't fail the workflow here since the example is intentionally vulnerable
+      - name: Demonstrate conditional failure
+        run: |
+          echo "In a real workflow, you might want to fail if vulnerabilities are found:"
+          echo "if: steps.govulncheck.outputs.vulnerabilities-found == 'true'"
+          echo "run: exit 1"
+
+  check-action-itself:
+    name: Check Action Code for Vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      
+      # Check if the action itself has any Go code with vulnerabilities
+      # This should pass since our action is written in JavaScript
+      - name: Run govulncheck on root
+        id: govulncheck-root
+        uses: ./
+        with:
+          working-directory: '.'
+        continue-on-error: true  # Don't fail if no go.mod found
+      
+      - name: Report results
+        if: always()
+        run: |
+          echo "Action code scan complete."
+          echo "Since this action is written in JavaScript, govulncheck won't find Go vulnerabilities here."
