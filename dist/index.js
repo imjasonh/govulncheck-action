@@ -35,6 +35,13 @@ async function run(dependencies = {}) {
 
     if (errorOutput) {
       core.warning(`govulncheck stderr: ${errorOutput}`);
+      
+      // Check for critical errors that indicate govulncheck couldn't run properly
+      if (errorOutput.includes('missing go.sum entry') || 
+          errorOutput.includes('could not import') ||
+          errorOutput.includes('invalid package name')) {
+        throw new Error(`govulncheck failed due to missing dependencies. Please run 'go mod tidy' to update go.mod and go.sum files.\n\nError: ${errorOutput}`);
+      }
     }
 
     // Log raw output for debugging
