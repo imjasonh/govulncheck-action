@@ -12,3 +12,6 @@ example/example
 *.dll
 *.so
 *.dylib
+
+# Don't ignore the compiled output
+!dist/
