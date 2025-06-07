@@ -25,7 +25,14 @@ jobs:
         with:
           working-directory: './example'
       
-      # Note: We don't fail the workflow here since the example is intentionally vulnerable
+      # We expect the check to fail, since there are known vulnerabilities in the example code.
+      # Therefore, we fail if no vulnerabilities are found.
+      - name: Check for vulnerabilities
+        if: steps.govulncheck.outputs.vulnerabilities-found != 'true'
+        run: |
+          echo "No vulnerabilities found, but we expected some in the example code."
+          exit 1
+
       - name: Demonstrate conditional failure
         run: |
           echo "In a real workflow, you might want to fail if vulnerabilities are found:"
