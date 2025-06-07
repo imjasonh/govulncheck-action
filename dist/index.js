@@ -8,12 +8,14 @@ const core = __nccwpck_require__(7484);
 const GovulncheckRunner = __nccwpck_require__(7515);
 const VulnerabilityParser = __nccwpck_require__(2177);
 const AnnotationCreator = __nccwpck_require__(2164);
+const SummaryGenerator = __nccwpck_require__(3228);
 
 async function run(dependencies = {}) {
   // Allow dependency injection for testing
   const govulncheck = dependencies.govulncheck || new GovulncheckRunner();
   const parser = dependencies.parser || new VulnerabilityParser();
   const annotator = dependencies.annotator || new AnnotationCreator(core);
+  const summaryGenerator = dependencies.summaryGenerator || new SummaryGenerator(core);
 
   try {
     const workingDirectory = core.getInput('working-directory');
@@ -47,7 +49,10 @@ async function run(dependencies = {}) {
     const vulnerabilities = parser.parse(output);
 
     // Create annotations
-    await annotator.createAnnotations(vulnerabilities, parser, '.');
+    await annotator.createAnnotations(vulnerabilities, parser, workingDirectory);
+    
+    // Generate workflow summary
+    await summaryGenerator.generateSummary(vulnerabilities, parser, workingDirectory);
 
     // Set outputs
     const hasVulnerabilities = vulnerabilities.length > 0;
@@ -98,17 +103,48 @@ class AnnotationCreator {
     
     this.core.info(`Found ${modules.length} vulnerable modules and ${callSites.length} call sites`);
     
+    // Check which modules have actual call sites
+    const modulesWithCallSites = this.findModulesWithCallSites(vulnerabilities, callSites);
+    
     // Annotate go.mod for vulnerable modules
-    await this.annotateGoMod(modules, vulnerabilities, workingDirectory);
+    await this.annotateGoMod(modules, vulnerabilities, workingDirectory, modulesWithCallSites);
     
     // Annotate source files for call sites
-    this.annotateCallSites(callSites);
+    this.annotateCallSites(callSites, workingDirectory);
+  }
+  
+  findModulesWithCallSites(vulnerabilities, callSites) {
+    const modulesWithCallSites = new Map();
+    
+    // For each call site, find which module it belongs to
+    for (const site of callSites) {
+      const vuln = vulnerabilities.find(v => v.finding.osv === site.osv);
+      if (vuln && vuln.finding.trace && vuln.finding.trace[0]) {
+        const module = vuln.finding.trace[0].module;
+        const version = vuln.finding.trace[0].version;
+        const fixedVersion = vuln.finding.fixed_version;
+        
+        if (!modulesWithCallSites.has(module)) {
+          modulesWithCallSites.set(module, {
+            currentVersion: version,
+            fixedVersion: fixedVersion,
+            osvs: []
+          });
+        }
+        
+        if (!modulesWithCallSites.get(module).osvs.includes(site.osv)) {
+          modulesWithCallSites.get(module).osvs.push(site.osv);
+        }
+      }
+    }
+    
+    return modulesWithCallSites;
   }
 
-  async annotateGoMod(modules, vulnerabilities, workingDirectory) {
+  async annotateGoMod(modules, vulnerabilities, workingDirectory, modulesWithCallSites) {
     if (modules.length === 0) return;
     
-    const goModPath = path.join(workingDirectory, 'go.mod');
+    const goModPath = 'go.mod';
     let goModContent = '';
     
     try {
@@ -121,8 +157,8 @@ class AnnotationCreator {
     const goModLines = goModContent.split('\n');
     
     for (const module of modules) {
-      // Find the vulnerability info for this module
-      const vuln = vulnerabilities.find(v => 
+      // Find all vulnerabilities for this module
+      const moduleVulns = vulnerabilities.filter(v => 
         v.finding.trace && 
         v.finding.trace[0] && 
         v.finding.trace[0].module === module
@@ -132,41 +168,145 @@ class AnnotationCreator {
       for (let i = 0; i < goModLines.length; i++) {
         if (goModLines[i].includes(module)) {
           const lineNumber = i + 1;
-          let message = `Vulnerable module: ${module}`;
           
-          if (vuln && vuln.finding.osv) {
-            message += ` (${vuln.finding.osv})`;
+          // Build detailed message
+          let message = `⚠️ Security vulnerabilities found in ${module}\n\n`;
+          
+          // Sort vulnerabilities by OSV ID
+          const sortedVulns = moduleVulns.sort((a, b) => {
+            const aId = a.finding.osv || '';
+            const bId = b.finding.osv || '';
+            return aId.localeCompare(bId);
+          });
+          
+          for (const vuln of sortedVulns) {
+            if (vuln.finding.osv) {
+              message += `• ${vuln.finding.osv}`;
+              
+              if (vuln.osvDetails) {
+                message += `: ${vuln.osvDetails.summary || 'No summary available'}`;
+                
+                // Add CVE aliases if available
+                if (vuln.osvDetails.aliases && vuln.osvDetails.aliases.length > 0) {
+                  const cves = vuln.osvDetails.aliases.filter(a => a.startsWith('CVE-'));
+                  if (cves.length > 0) {
+                    message += ` (${cves.join(', ')})`;
+                  }
+                }
+              }
+              
+              message += `\n`;
+              
+              // Add link to vulnerability database
+              message += `  🔗 https://pkg.go.dev/vuln/${vuln.finding.osv}\n`;
+              
+              // Add fixed version info
+              if (vuln.finding.fixed_version) {
+                message += `  ✅ Fixed in: ${vuln.finding.fixed_version}\n`;
+              }
+              
+              message += `\n`;
+            }
+          }
+          
+          // Add upgrade suggestion
+          if (moduleVulns.length > 0 && moduleVulns[0].finding.fixed_version) {
+            message += `💡 Recommended action: Update to ${moduleVulns[0].finding.fixed_version} or later`;
           }
           
           this.core.info(`Creating annotation for ${module} at go.mod:${lineNumber}`);
           
           // GitHub Actions annotation format
+          const filePath = workingDirectory === '.' ? 'go.mod' : path.join(workingDirectory, 'go.mod');
           this.core.warning(message, {
-            title: 'Security Vulnerability',
-            file: 'go.mod',
+            title: `${moduleVulns.length} vulnerabilities in ${module}`,
+            file: filePath,
             startLine: lineNumber,
             endLine: lineNumber
           });
+          
+          // If this module has actual call sites, create a suggested edit
+          if (modulesWithCallSites.has(module)) {
+            const moduleInfo = modulesWithCallSites.get(module);
+            if (moduleInfo.fixedVersion) {
+              // Create a notice with the suggested fix
+              const currentLine = goModLines[i];
+              const suggestedLine = currentLine.replace(moduleInfo.currentVersion, moduleInfo.fixedVersion);
+              
+              let editMessage = `🔧 Suggested fix: Update this dependency to fix vulnerabilities that are actually being called in your code.\n\n`;
+              editMessage += `Current: ${currentLine.trim()}\n`;
+              editMessage += `Suggested: ${suggestedLine.trim()}\n\n`;
+              editMessage += `This fixes ${moduleInfo.osvs.length} vulnerabilities that have active call sites in your code:\n`;
+              editMessage += moduleInfo.osvs.sort().map(osv => `• ${osv}`).join('\n');
+              
+              this.core.notice(editMessage, {
+                title: `Fix available for ${module}`,
+                file: filePath,
+                startLine: lineNumber,
+                endLine: lineNumber
+              });
+            }
+          }
+          
           break;
         }
       }
     }
   }
 
-  annotateCallSites(callSites) {
+  annotateCallSites(callSites, workingDirectory) {
+    // Group call sites by OSV ID to avoid duplicate annotations
+    const groupedSites = {};
     for (const site of callSites) {
-      let message = `Vulnerable code path: ${site.function}`;
+      const key = `${site.filename}:${site.line}:${site.osv}`;
+      if (!groupedSites[key]) {
+        groupedSites[key] = site;
+      }
+    }
+    
+    for (const site of Object.values(groupedSites)) {
+      // Build detailed message
+      let message = `🚨 Vulnerable code detected\n\n`;
+      message += `This code calls ${site.vulnerableFunction} which has a known vulnerability.\n\n`;
       
       if (site.osv) {
-        message += ` (${site.osv})`;
+        message += `Vulnerability: ${site.osv}`;
+        
+        if (site.osvDetails) {
+          message += ` - ${site.osvDetails.summary || 'No summary available'}`;
+          
+          // Add CVE aliases if available
+          if (site.osvDetails.aliases && site.osvDetails.aliases.length > 0) {
+            const cves = site.osvDetails.aliases.filter(a => a.startsWith('CVE-'));
+            if (cves.length > 0) {
+              message += `\nCVE: ${cves.join(', ')}`;
+            }
+          }
+          
+          // Add details if available
+          if (site.osvDetails.details) {
+            message += `\n\nDetails: ${site.osvDetails.details}`;
+          }
+        }
+        
+        message += `\n\n🔗 More info: https://pkg.go.dev/vuln/${site.osv}`;
+      }
+      
+      if (site.fixedVersion) {
+        message += `\n\n✅ Fix available: Update the dependency to ${site.fixedVersion} or later`;
       }
       
       this.core.info(`Creating annotation for call site at ${site.filename}:${site.line}`);
       
       // GitHub Actions annotation format
+      // If we're in a subdirectory, prepend it to the filename
+      const filePath = workingDirectory === '.' ? site.filename : path.join(workingDirectory, site.filename);
+      
+      const title = site.osv ? `Vulnerable code: ${site.osv}` : 'Vulnerable code detected';
+      
       this.core.warning(message, {
-        title: 'Security Vulnerability',
-        file: site.filename,
+        title: title,
+        file: filePath,
         startLine: site.line,
         endLine: site.line
       });
@@ -236,6 +376,7 @@ module.exports = GovulncheckRunner;
 class VulnerabilityParser {
   parse(output) {
     const vulnerabilities = [];
+    const osvDetails = {};
     
     // Try to parse as JSON Lines first (one JSON object per line)
     const lines = output.split('\n').filter(line => line.trim());
@@ -257,7 +398,10 @@ class VulnerabilityParser {
       for (const line of lines) {
         try {
           const json = JSON.parse(line);
-          if (json.finding) {
+          if (json.osv) {
+            // Store OSV details
+            osvDetails[json.osv.id] = json.osv;
+          } else if (json.finding) {
             console.log(`Found vulnerability: ${JSON.stringify(json.finding.osv || json.finding)}`);
             vulnerabilities.push(json);
           }
@@ -274,13 +418,23 @@ class VulnerabilityParser {
       for (const jsonStr of jsonObjects) {
         try {
           const json = JSON.parse(jsonStr);
-          if (json.finding) {
+          if (json.osv) {
+            // Store OSV details
+            osvDetails[json.osv.id] = json.osv;
+          } else if (json.finding) {
             console.log(`Found vulnerability: ${JSON.stringify(json.finding.osv || json.finding)}`);
             vulnerabilities.push(json);
           }
         } catch (e) {
           console.log(`Failed to parse JSON object: ${e.message}`);
         }
+      }
+    }
+    
+    // Attach OSV details to vulnerabilities
+    for (const vuln of vulnerabilities) {
+      if (vuln.finding.osv && osvDetails[vuln.finding.osv]) {
+        vuln.osvDetails = osvDetails[vuln.finding.osv];
       }
     }
     
@@ -306,14 +460,23 @@ class VulnerabilityParser {
     
     for (const vuln of vulnerabilities) {
       const finding = vuln.finding;
-      if (finding.trace) {
-        for (const frame of finding.trace) {
-          if (frame.position && frame.position.filename) {
+      if (finding.trace && finding.trace.length > 0) {
+        // The first frame in the trace is the vulnerable function
+        const vulnerableFunction = finding.trace[0].function || 'unknown function';
+        
+        // Look for frames that represent our code (not the vulnerable library)
+        for (let i = 1; i < finding.trace.length; i++) {
+          const frame = finding.trace[i];
+          if (frame.position && frame.position.filename && !frame.position.filename.includes('/')) {
+            // This frame is in our code (doesn't have path separators like library code)
             callSites.push({
               filename: frame.position.filename,
               line: frame.position.line || 1,
               function: frame.function || 'unknown function',
-              osv: finding.osv || null
+              vulnerableFunction: vulnerableFunction,
+              osv: finding.osv || null,
+              osvDetails: vuln.osvDetails || null,
+              fixedVersion: finding.fixed_version || null
             });
           }
         }
@@ -325,6 +488,209 @@ class VulnerabilityParser {
 }
 
 module.exports = VulnerabilityParser;
+
+/***/ }),
+
+/***/ 3228:
+/***/ ((module) => {
+
+class SummaryGenerator {
+  constructor(core) {
+    this.core = core;
+  }
+
+  async generateSummary(vulnerabilities, parser, workingDirectory = '.') {
+    const modules = parser.extractUniqueModules(vulnerabilities);
+    const callSites = parser.extractCallSites(vulnerabilities);
+    
+    // Group vulnerabilities by module
+    const vulnsByModule = new Map();
+    for (const vuln of vulnerabilities) {
+      if (vuln.finding.trace && vuln.finding.trace[0]) {
+        const module = vuln.finding.trace[0].module;
+        if (!vulnsByModule.has(module)) {
+          vulnsByModule.set(module, []);
+        }
+        vulnsByModule.get(module).push(vuln);
+      }
+    }
+    
+    // Sort modules for consistent output
+    const sortedModules = Array.from(vulnsByModule.keys()).sort();
+    
+    // Start building the summary
+    await this.core.summary
+      .addHeading('🔍 Govulncheck Security Report', 1)
+      .addEOL();
+    
+    if (vulnerabilities.length === 0) {
+      await this.core.summary
+        .addRaw('✅ No vulnerabilities found!')
+        .addEOL()
+        .write();
+      return;
+    }
+    
+    // Add overview
+    await this.core.summary
+      .addHeading('📊 Overview', 2)
+      .addList([
+        `Total vulnerabilities found: ${vulnerabilities.length}`,
+        `Vulnerable modules: ${modules.length}`,
+        `Vulnerable code locations: ${callSites.length}`
+      ])
+      .addEOL();
+    
+    // Add vulnerable modules section
+    await this.core.summary
+      .addHeading('📦 Vulnerable Modules', 2)
+      .addEOL();
+    
+    for (const module of sortedModules) {
+      const moduleVulns = vulnsByModule.get(module);
+      const moduleInfo = moduleVulns[0].finding.trace[0];
+      
+      await this.core.summary
+        .addHeading(`${module}`, 3)
+        .addRaw(`Current version: ${moduleInfo.version}`)
+        .addEOL()
+        .addEOL();
+      
+      // Sort vulnerabilities by OSV ID
+      const sortedVulns = moduleVulns.sort((a, b) => {
+        const aId = a.finding.osv || '';
+        const bId = b.finding.osv || '';
+        return aId.localeCompare(bId);
+      });
+      
+      // Create a table of vulnerabilities
+      const tableRows = [['Vulnerability', 'Summary', 'Fixed Version', 'Details']];
+      
+      for (const vuln of sortedVulns) {
+        const osvId = vuln.finding.osv;
+        const summary = vuln.osvDetails?.summary || 'No summary available';
+        const fixedVersion = vuln.finding.fixed_version || 'Not specified';
+        
+        let details = [];
+        if (vuln.osvDetails?.aliases) {
+          const cves = vuln.osvDetails.aliases.filter(a => a.startsWith('CVE-'));
+          if (cves.length > 0) {
+            details.push(`CVE: ${cves.join(', ')}`);
+          }
+        }
+        
+        // For the link, we'll add it as a separate line after the table
+        tableRows.push([
+          osvId,
+          summary.length > 60 ? summary.substring(0, 60) + '...' : summary,
+          fixedVersion,
+          details.join(', ')
+        ]);
+      }
+      
+      await this.core.summary.addTable(tableRows);
+      
+      // Add links separately since we can't put them in the table
+      await this.core.summary.addEOL().addRaw('Links: ');
+      for (let i = 0; i < sortedVulns.length; i++) {
+        const vuln = sortedVulns[i];
+        if (i > 0) await this.core.summary.addRaw(' | ');
+        await this.core.summary.addLink(vuln.finding.osv, `https://pkg.go.dev/vuln/${vuln.finding.osv}`);
+      }
+      await this.core.summary.addEOL().addEOL();
+    }
+    
+    // Add vulnerable code locations section
+    if (callSites.length > 0) {
+      await this.core.summary
+        .addHeading('🚨 Vulnerable Code Locations', 2)
+        .addEOL();
+      
+      // Group call sites by file
+      const callSitesByFile = new Map();
+      for (const site of callSites) {
+        const filePath = workingDirectory === '.' ? site.filename : `${workingDirectory}/${site.filename}`;
+        if (!callSitesByFile.has(filePath)) {
+          callSitesByFile.set(filePath, []);
+        }
+        callSitesByFile.get(filePath).push(site);
+      }
+      
+      // Sort files
+      const sortedFiles = Array.from(callSitesByFile.keys()).sort();
+      
+      for (const file of sortedFiles) {
+        await this.core.summary
+          .addHeading(`📄 ${file}`, 3);
+        
+        const sites = callSitesByFile.get(file);
+        
+        for (const site of sites) {
+          await this.core.summary
+            .addRaw(`• Line ${site.line}: calls ${site.vulnerableFunction}`);
+          
+          if (site.osv) {
+            await this.core.summary
+              .addRaw(' - ')
+              .addLink(site.osv, `https://pkg.go.dev/vuln/${site.osv}`);
+          }
+          
+          await this.core.summary.addEOL();
+        }
+        
+        await this.core.summary.addEOL();
+      }
+    }
+    
+    // Add recommendations section
+    await this.core.summary
+      .addHeading('💡 Recommendations', 2)
+      .addEOL();
+    
+    const recommendations = [];
+    
+    // Find modules that need updates
+    for (const module of sortedModules) {
+      const moduleVulns = vulnsByModule.get(module);
+      const fixedVersions = moduleVulns
+        .map(v => v.finding.fixed_version)
+        .filter(v => v)
+        .sort();
+      
+      if (fixedVersions.length > 0) {
+        // Get the latest fixed version
+        const latestFix = fixedVersions[fixedVersions.length - 1];
+        recommendations.push(
+          `Update ${module} to version ${latestFix} or later`
+        );
+      }
+    }
+    
+    if (recommendations.length > 0) {
+      await this.core.summary.addList(recommendations);
+    } else {
+      await this.core.summary.addRaw('No specific version recommendations available.');
+    }
+    
+    await this.core.summary
+      .addEOL()
+      .addSeparator()
+      .addEOL()
+      .addRaw('🔗 Learn more about these vulnerabilities:')
+      .addEOL()
+      .addRaw('• ')
+      .addLink('Go Vulnerability Database', 'https://pkg.go.dev/vuln/')
+      .addEOL()
+      .addRaw('• ')
+      .addLink('Govulncheck Documentation', 'https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck')
+      .addEOL();
+    
+    // Write the summary
+    await this.core.summary.write();
+  }
+}
+
+module.exports = SummaryGenerator;
 
 /***/ }),
 

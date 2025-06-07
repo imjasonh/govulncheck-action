@@ -25,23 +25,6 @@ jobs:
         with:
           working-directory: './example'
       
-      - name: Report vulnerability scan results
-        if: always()
-        run: |
-          echo "## Vulnerability Scan Results"
-          echo "- Vulnerabilities found: ${{ steps.govulncheck.outputs.vulnerabilities-found }}"
-          echo "- Vulnerability count: ${{ steps.govulncheck.outputs.vulnerability-count }}"
-          
-          if [ "${{ steps.govulncheck.outputs.vulnerabilities-found }}" == "true" ]; then
-            echo ""
-            echo "⚠️ Security vulnerabilities were detected in the example code."
-            echo "This is expected! The example intentionally uses a vulnerable version of golang.org/x/net"
-            echo "to demonstrate how the action creates annotations."
-          else
-            echo ""
-            echo "✅ No vulnerabilities found (this would be unexpected for the example)."
-          fi
-      
       # Note: We don't fail the workflow here since the example is intentionally vulnerable
       - name: Demonstrate conditional failure
         run: |

@@ -2,12 +2,14 @@ const core = require('@actions/core');
 const GovulncheckRunner = require('./lib/govulncheck');
 const VulnerabilityParser = require('./lib/parser');
 const AnnotationCreator = require('./lib/annotator');
+const SummaryGenerator = require('./lib/summary');
 
 async function run(dependencies = {}) {
   // Allow dependency injection for testing
   const govulncheck = dependencies.govulncheck || new GovulncheckRunner();
   const parser = dependencies.parser || new VulnerabilityParser();
   const annotator = dependencies.annotator || new AnnotationCreator(core);
+  const summaryGenerator = dependencies.summaryGenerator || new SummaryGenerator(core);
 
   try {
     const workingDirectory = core.getInput('working-directory');
@@ -41,7 +43,10 @@ async function run(dependencies = {}) {
     const vulnerabilities = parser.parse(output);
 
     // Create annotations
-    await annotator.createAnnotations(vulnerabilities, parser, '.');
+    await annotator.createAnnotations(vulnerabilities, parser, workingDirectory);
+    
+    // Generate workflow summary
+    await summaryGenerator.generateSummary(vulnerabilities, parser, workingDirectory);
 
     // Set outputs
     const hasVulnerabilities = vulnerabilities.length > 0;
