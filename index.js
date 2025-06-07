@@ -18,8 +18,7 @@ async function run(dependencies = {}) {
       process.chdir(workingDirectory);
     }
 
-    // Install govulncheck
-    core.info('Installing govulncheck...');
+    // Install govulncheck if necessary.
     await govulncheck.install();
 
     // Run govulncheck with JSON output
