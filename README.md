@@ -1,5 +1,7 @@
 # Go Vulnerability Check Action
 
+[![CI](https://github.com/imjasonh/govulncheck-action/actions/workflows/ci.yml/badge.svg)](https://github.com/imjasonh/govulncheck-action/actions/workflows/ci.yml)
+
 A GitHub Action that runs `govulncheck` on your Go code and creates annotations for vulnerable dependencies and code paths directly in your pull requests.
 
 ## Features
@@ -102,6 +104,8 @@ See [`.github/workflows/example.yml`](./.github/workflows/example.yml) for a com
 ## The Action In Action
 
 [example.yaml](https://github.com/imjasonh/govulncheck-action/actions/workflows/example.yml) demonstrates the action running on the vulnerable module in `./example`.
+
+Here's an [example Pull Request showing the annotations](https://github.com/imjasonh/govulncheck-action/pull/1/files#diff-1c171c5d51ba71728458fc771ff98395bcd3f59481e736c18e059372723acaab)
 
 ## Annotation Examples
 
