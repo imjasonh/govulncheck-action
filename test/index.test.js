@@ -174,6 +174,34 @@ describe('GitHub Action Integration', () => {
     );
   });
 
+  it('should fail when go.sum is missing', async () => {
+    mockGovulncheck.run.mockResolvedValue({
+      output: '{"config": {}}',
+      errorOutput: 'missing go.sum entry for module providing package golang.org/x/net/html',
+      exitCode: 1
+    });
+
+    await expect(run({
+      govulncheck: mockGovulncheck,
+      parser: mockParser,
+      annotator: mockAnnotator
+    })).rejects.toThrow('govulncheck failed due to missing dependencies');
+  });
+
+  it('should fail when imports cannot be resolved', async () => {
+    mockGovulncheck.run.mockResolvedValue({
+      output: '{"config": {}}',
+      errorOutput: 'could not import golang.org/x/net/html (invalid package name: "")',
+      exitCode: 1
+    });
+
+    await expect(run({
+      govulncheck: mockGovulncheck,
+      parser: mockParser,
+      annotator: mockAnnotator
+    })).rejects.toThrow('govulncheck failed due to missing dependencies');
+  });
+
   it('should handle errors and set action as failed', async () => {
     const error = new Error('Failed to install govulncheck');
     mockGovulncheck.install.mockRejectedValue(error);
