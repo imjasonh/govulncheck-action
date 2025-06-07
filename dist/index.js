@@ -190,7 +190,15 @@ class GovulncheckRunner {
   }
 
   async install() {
-    await this.exec.exec('go', ['install', 'golang.org/x/vuln/cmd/govulncheck@latest']);
+    // Check if govulncheck is already installed
+    try {
+      await this.exec.exec('govulncheck', ['-version']);
+      console.log('govulncheck is already installed');
+      return;
+    } catch (e) {
+      console.log('govulncheck not found, installing...');
+      await this.exec.exec('go', ['install', 'golang.org/x/vuln/cmd/govulncheck@latest']);
+    }
   }
 
   async run() {
@@ -229,21 +237,51 @@ module.exports = GovulncheckRunner;
 class VulnerabilityParser {
   parse(output) {
     const vulnerabilities = [];
-    const lines = output.split('\n').filter(line => line.trim());
     
+    // Try to parse as JSON Lines first (one JSON object per line)
+    const lines = output.split('\n').filter(line => line.trim());
     console.log(`Parsing ${lines.length} lines of govulncheck output`);
     
-    for (const line of lines) {
+    // Check if it's JSON lines format
+    let isJsonLines = false;
+    if (lines.length > 0) {
       try {
-        const json = JSON.parse(line);
-        
-        // Check for vulnerability findings
-        if (json.finding) {
-          console.log(`Found vulnerability: ${JSON.stringify(json.finding.osv || json.finding)}`);
-          vulnerabilities.push(json);
-        }
+        JSON.parse(lines[0]);
+        isJsonLines = true;
       } catch (e) {
-        // Skip non-JSON lines
+        // Not JSON lines format
+      }
+    }
+    
+    if (isJsonLines) {
+      // Parse as JSON lines
+      for (const line of lines) {
+        try {
+          const json = JSON.parse(line);
+          if (json.finding) {
+            console.log(`Found vulnerability: ${JSON.stringify(json.finding.osv || json.finding)}`);
+            vulnerabilities.push(json);
+          }
+        } catch (e) {
+          // Skip non-JSON lines
+        }
+      }
+    } else {
+      // Parse as multi-line JSON objects
+      // Split by lines that start with '{' at the beginning
+      const jsonObjects = output.split(/\n(?=\{)/).filter(chunk => chunk.trim());
+      console.log(`Found ${jsonObjects.length} JSON objects`);
+      
+      for (const jsonStr of jsonObjects) {
+        try {
+          const json = JSON.parse(jsonStr);
+          if (json.finding) {
+            console.log(`Found vulnerability: ${JSON.stringify(json.finding.osv || json.finding)}`);
+            vulnerabilities.push(json);
+          }
+        } catch (e) {
+          console.log(`Failed to parse JSON object: ${e.message}`);
+        }
       }
     }
     
