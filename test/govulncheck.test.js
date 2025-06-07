@@ -80,7 +80,7 @@ describe('GovulncheckRunner', () => {
       expect(result.errorOutput).toBe('error: vulnerabilities found');
     });
 
-    it('should use default working directory', async () => {
+    it('should always run on ./...', async () => {
       mockExec.exec.mockResolvedValue(0);
       
       await runner.run();
@@ -88,18 +88,6 @@ describe('GovulncheckRunner', () => {
       expect(mockExec.exec).toHaveBeenCalledWith(
         'govulncheck',
         ['-json', './...'],
-        expect.any(Object)
-      );
-    });
-
-    it('should use custom working directory', async () => {
-      mockExec.exec.mockResolvedValue(0);
-      
-      await runner.run('./cmd/...');
-      
-      expect(mockExec.exec).toHaveBeenCalledWith(
-        'govulncheck',
-        ['-json', './cmd/...'],
         expect.any(Object)
       );
     });

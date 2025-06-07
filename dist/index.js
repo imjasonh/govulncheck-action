@@ -29,7 +29,7 @@ async function run(dependencies = {}) {
 
     // Run govulncheck with JSON output
     core.info('Running govulncheck...');
-    const { output, errorOutput } = await govulncheck.run('./...');
+    const { output, errorOutput } = await govulncheck.run();
 
     if (errorOutput) {
       core.warning(`govulncheck stderr: ${errorOutput}`);
@@ -39,7 +39,7 @@ async function run(dependencies = {}) {
     const vulnerabilities = parser.parse(output);
 
     // Create annotations
-    await annotator.createAnnotations(vulnerabilities, parser, workingDirectory);
+    await annotator.createAnnotations(vulnerabilities, parser, '.');
 
     // Set outputs
     const hasVulnerabilities = vulnerabilities.length > 0;
@@ -177,7 +177,7 @@ class GovulncheckRunner {
     await this.exec.exec('go', ['install', 'golang.org/x/vuln/cmd/govulncheck@latest']);
   }
 
-  async run(workingDirectory = './...') {
+  async run() {
     let output = '';
     let errorOutput = '';
     
@@ -193,7 +193,7 @@ class GovulncheckRunner {
       ignoreReturnCode: true
     };
     
-    const exitCode = await this.exec.exec('govulncheck', ['-json', workingDirectory], options);
+    const exitCode = await this.exec.exec('govulncheck', ['-json', './...'], options);
     
     return {
       output,

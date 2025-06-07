@@ -65,7 +65,7 @@ describe('GitHub Action Integration', () => {
     expect(core.info).toHaveBeenCalledWith('No vulnerabilities found');
 
     expect(mockGovulncheck.install).toHaveBeenCalled();
-    expect(mockGovulncheck.run).toHaveBeenCalledWith('./...');
+    expect(mockGovulncheck.run).toHaveBeenCalled();
 
     expect(core.setOutput).toHaveBeenCalledWith('vulnerabilities-found', 'false');
     expect(core.setOutput).toHaveBeenCalledWith('vulnerability-count', '0');
