@@ -39,7 +39,7 @@ jobs:
         with:
           go-version: stable
       
-      - uses: imjasonh/govulncheck-action@main
+      - uses: imjasonh/govulncheck-action@v0.1
 ```
 
 ## Inputs
