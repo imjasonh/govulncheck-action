@@ -191,5 +191,208 @@ require (
       annotator.annotateCallSites([]);
       expect(mockCore.warning).not.toHaveBeenCalled();
     });
+
+    it('should include OSV details with CVE aliases in call site annotations', () => {
+      const callSites = [
+        {
+          filename: 'main.go',
+          line: 42,
+          vulnerableFunction: 'vulnerable.Function',
+          osv: 'GO-2023-1234',
+          osvDetails: {
+            summary: 'Critical vulnerability in package',
+            aliases: ['CVE-2023-1234', 'GHSA-xxxx-yyyy', 'CVE-2023-5678'],
+            details: 'This vulnerability allows remote code execution'
+          },
+          fixedVersion: 'v1.2.3'
+        }
+      ];
+      
+      annotator.annotateCallSites(callSites, '.');
+      
+      expect(mockCore.warning).toHaveBeenCalledWith(
+        expect.stringContaining('CVE: CVE-2023-1234, CVE-2023-5678'),
+        expect.anything()
+      );
+      expect(mockCore.warning).toHaveBeenCalledWith(
+        expect.stringContaining('Details: This vulnerability allows remote code execution'),
+        expect.anything()
+      );
+      expect(mockCore.warning).toHaveBeenCalledWith(
+        expect.stringContaining('✅ Fix available: Update the dependency to v1.2.3 or later'),
+        expect.anything()
+      );
+    });
+
+    it('should handle call sites without OSV details', () => {
+      const callSites = [
+        {
+          filename: 'main.go',
+          line: 42,
+          vulnerableFunction: 'vulnerable.Function',
+          osv: 'GO-2023-1234',
+          osvDetails: null,
+          fixedVersion: null
+        }
+      ];
+      
+      annotator.annotateCallSites(callSites, '.');
+      
+      expect(mockCore.warning).toHaveBeenCalledWith(
+        expect.not.stringContaining('CVE:'),
+        expect.anything()
+      );
+      expect(mockCore.warning).toHaveBeenCalledWith(
+        expect.not.stringContaining('✅ Fix available:'),
+        expect.anything()
+      );
+    });
+  });
+
+  describe('annotateGoMod with OSV details', () => {
+    it('should include OSV details without aliases', async () => {
+      const modules = ['example.com/vulnerable'];
+      const vulnerabilities = [
+        {
+          finding: {
+            osv: 'GO-2023-1234',
+            trace: [{ module: 'example.com/vulnerable' }],
+            fixed_version: 'v1.2.3'
+          },
+          osvDetails: {
+            summary: 'Critical vulnerability'
+          }
+        }
+      ];
+      
+      const goModContent = 'module example.com/app\n\nrequire example.com/vulnerable v1.0.0';
+      mockFs.readFile.mockResolvedValue(goModContent);
+      
+      await annotator.annotateGoMod(modules, vulnerabilities, '.', new Map());
+      
+      expect(mockCore.warning).toHaveBeenCalledWith(
+        expect.stringContaining('GO-2023-1234: Critical vulnerability'),
+        expect.anything()
+      );
+      expect(mockCore.warning).toHaveBeenCalledWith(
+        expect.stringContaining('✅ Fixed in: v1.2.3'),
+        expect.anything()
+      );
+      expect(mockCore.warning).toHaveBeenCalledWith(
+        expect.stringContaining('💡 Recommended action: Update to v1.2.3 or later'),
+        expect.anything()
+      );
+    });
+
+    it('should include OSV details with CVE aliases', async () => {
+      const modules = ['example.com/vulnerable'];
+      const vulnerabilities = [
+        {
+          finding: {
+            osv: 'GO-2023-1234',
+            trace: [{ module: 'example.com/vulnerable' }]
+          },
+          osvDetails: {
+            summary: 'Critical vulnerability',
+            aliases: ['CVE-2023-1234', 'GHSA-xxxx-yyyy', 'CVE-2023-5678']
+          }
+        }
+      ];
+      
+      const goModContent = 'module example.com/app\n\nrequire example.com/vulnerable v1.0.0';
+      mockFs.readFile.mockResolvedValue(goModContent);
+      
+      await annotator.annotateGoMod(modules, vulnerabilities, '.', new Map());
+      
+      expect(mockCore.warning).toHaveBeenCalledWith(
+        expect.stringContaining('(CVE-2023-1234, CVE-2023-5678)'),
+        expect.anything()
+      );
+    });
+
+    it('should create suggested edits for modules with call sites', async () => {
+      mockCore.notice = jest.fn();
+      
+      const modules = ['example.com/vulnerable'];
+      const vulnerabilities = [
+        {
+          finding: {
+            osv: 'GO-2023-1234',
+            trace: [{ module: 'example.com/vulnerable', version: 'v1.0.0' }],
+            fixed_version: 'v1.2.3'
+          }
+        }
+      ];
+      
+      const goModContent = 'module example.com/app\n\nrequire example.com/vulnerable v1.0.0';
+      mockFs.readFile.mockResolvedValue(goModContent);
+      
+      const modulesWithCallSites = new Map([
+        ['example.com/vulnerable', {
+          currentVersion: 'v1.0.0',
+          fixedVersion: 'v1.2.3',
+          osvs: ['GO-2023-1234', 'GO-2023-5678']
+        }]
+      ]);
+      
+      await annotator.annotateGoMod(modules, vulnerabilities, '.', modulesWithCallSites);
+      
+      expect(mockCore.notice).toHaveBeenCalledWith(
+        expect.stringContaining('🔧 Suggested fix:'),
+        expect.objectContaining({
+          title: 'Fix available for example.com/vulnerable',
+          file: 'go.mod',
+          startLine: 3,
+          endLine: 3
+        })
+      );
+      expect(mockCore.notice).toHaveBeenCalledWith(
+        expect.stringContaining('Current: require example.com/vulnerable v1.0.0'),
+        expect.anything()
+      );
+      expect(mockCore.notice).toHaveBeenCalledWith(
+        expect.stringContaining('Suggested: require example.com/vulnerable v1.2.3'),
+        expect.anything()
+      );
+      expect(mockCore.notice).toHaveBeenCalledWith(
+        expect.stringContaining('• GO-2023-1234'),
+        expect.anything()
+      );
+    });
+
+    it('should handle vulnerabilities without OSV IDs when sorting', async () => {
+      const modules = ['example.com/vulnerable'];
+      const vulnerabilities = [
+        {
+          finding: {
+            osv: 'GO-2023-5678',
+            trace: [{ module: 'example.com/vulnerable' }]
+          }
+        },
+        {
+          finding: {
+            // No OSV ID
+            trace: [{ module: 'example.com/vulnerable' }]
+          }
+        },
+        {
+          finding: {
+            osv: 'GO-2023-1234',
+            trace: [{ module: 'example.com/vulnerable' }]
+          }
+        }
+      ];
+      
+      const goModContent = 'module example.com/app\n\nrequire example.com/vulnerable v1.0.0';
+      mockFs.readFile.mockResolvedValue(goModContent);
+      
+      await annotator.annotateGoMod(modules, vulnerabilities, '.', new Map());
+      
+      // The vulnerabilities should be sorted with empty OSV IDs first
+      expect(mockCore.warning).toHaveBeenCalledWith(
+        expect.stringContaining('⚠️ Security vulnerabilities found in example.com/vulnerable'),
+        expect.anything()
+      );
+    });
   });
 });
