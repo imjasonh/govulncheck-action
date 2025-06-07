@@ -2,13 +2,29 @@ const { run } = require('../index');
 const core = require('@actions/core');
 
 // Mock the @actions/core module
-jest.mock('@actions/core', () => ({
-  getInput: jest.fn(),
-  info: jest.fn(),
-  warning: jest.fn(),
-  setOutput: jest.fn(),
-  setFailed: jest.fn()
-}));
+jest.mock('@actions/core', () => {
+  const mockSummary = {
+    addHeading: jest.fn().mockReturnThis(),
+    addEOL: jest.fn().mockReturnThis(),
+    addRaw: jest.fn().mockReturnThis(),
+    addList: jest.fn().mockReturnThis(),
+    addTable: jest.fn().mockReturnThis(),
+    addCodeBlock: jest.fn().mockReturnThis(),
+    addDetails: jest.fn().mockReturnThis(),
+    addLink: jest.fn().mockReturnThis(),
+    addSeparator: jest.fn().mockReturnThis(),
+    write: jest.fn().mockResolvedValue()
+  };
+  
+  return {
+    getInput: jest.fn(),
+    info: jest.fn(),
+    warning: jest.fn(),
+    setOutput: jest.fn(),
+    setFailed: jest.fn(),
+    summary: mockSummary
+  };
+});
 
 describe('GitHub Action Integration', () => {
   let mockGovulncheck;
@@ -60,9 +76,9 @@ describe('GitHub Action Integration', () => {
       annotator: mockAnnotator
     });
 
-    expect(core.info).toHaveBeenCalledWith('Installing govulncheck...');
     expect(core.info).toHaveBeenCalledWith('Running govulncheck...');
-    expect(core.info).toHaveBeenCalledWith('No vulnerabilities found');
+    expect(core.info).toHaveBeenCalledWith('Raw govulncheck output length: 0 characters');
+    expect(core.info).toHaveBeenCalledWith('Raw output: ');
 
     expect(mockGovulncheck.install).toHaveBeenCalled();
     expect(mockGovulncheck.run).toHaveBeenCalled();

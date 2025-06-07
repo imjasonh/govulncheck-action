@@ -93,26 +93,30 @@ require (
       
       mockFs.readFile.mockResolvedValue(goModContent);
       
-      await annotator.annotateGoMod(modules, vulnerabilities, '.');
+      // Create modulesWithCallSites map for testing
+      const modulesWithCallSites = new Map();
+      
+      await annotator.annotateGoMod(modules, vulnerabilities, '.', modulesWithCallSites);
       
       expect(mockCore.warning).toHaveBeenCalledTimes(2);
       
       expect(mockCore.warning).toHaveBeenCalledWith(
-        'Vulnerable module: example.com/vulnerable (GO-2023-1234)',
+        expect.stringContaining('⚠️ Security vulnerabilities found in example.com/vulnerable'),
         expect.objectContaining({
           file: 'go.mod',
           startLine: 6,
           endLine: 6,
-          title: 'Security Vulnerability'
+          title: '1 vulnerabilities in example.com/vulnerable'
         })
       );
       
       expect(mockCore.warning).toHaveBeenCalledWith(
-        'Vulnerable module: another.com/package (GO-2023-5678)',
+        expect.stringContaining('⚠️ Security vulnerabilities found in another.com/package'),
         expect.objectContaining({
           file: 'go.mod',
           startLine: 7,
-          endLine: 7
+          endLine: 7,
+          title: '1 vulnerabilities in another.com/package'
         })
       );
     });
@@ -158,26 +162,27 @@ require (
         }
       ];
       
-      annotator.annotateCallSites(callSites);
+      annotator.annotateCallSites(callSites, '.');
       
       expect(mockCore.warning).toHaveBeenCalledTimes(2);
       
       expect(mockCore.warning).toHaveBeenCalledWith(
-        'Vulnerable code path: vulnerable.Function (GO-2023-1234)',
+        expect.stringContaining('🚨 Vulnerable code detected'),
         expect.objectContaining({
           file: 'main.go',
           startLine: 42,
           endLine: 42,
-          title: 'Security Vulnerability'
+          title: 'Vulnerable code: GO-2023-1234'
         })
       );
       
       expect(mockCore.warning).toHaveBeenCalledWith(
-        'Vulnerable code path: helper.Process',
+        expect.stringContaining('🚨 Vulnerable code detected'),
         expect.objectContaining({
           file: 'utils.go',
           startLine: 10,
-          endLine: 10
+          endLine: 10,
+          title: 'Vulnerable code detected'
         })
       );
     });

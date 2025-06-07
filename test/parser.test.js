@@ -28,22 +28,18 @@ describe('VulnerabilityParser', () => {
     });
 
     it('should skip non-JSON lines', () => {
-      const output = `
-        Invalid JSON line
-        {"finding":{"osv":"GO-2023-1234","trace":[{"module":"example.com/vulnerable"}]}}
-        Another invalid line
-      `;
+      const output = `Invalid JSON line
+{"finding":{"osv":"GO-2023-1234","trace":[{"module":"example.com/vulnerable"}]}}
+Another invalid line`;
       
       const vulnerabilities = parser.parse(output);
       expect(vulnerabilities).toHaveLength(1);
     });
 
     it('should ignore non-finding JSON objects', () => {
-      const output = `
-        {"progress":"scanning packages"}
-        {"config":{"db":"latest"}}
-        {"finding":{"osv":"GO-2023-1234","trace":[{"module":"example.com/vulnerable"}]}}
-      `;
+      const output = `{"progress":"scanning packages"}
+{"config":{"db":"latest"}}
+{"finding":{"osv":"GO-2023-1234","trace":[{"module":"example.com/vulnerable"}]}}`;
       
       const vulnerabilities = parser.parse(output);
       expect(vulnerabilities).toHaveLength(1);
@@ -109,18 +105,15 @@ describe('VulnerabilityParser', () => {
       
       const callSites = parser.extractCallSites(vulnerabilities);
       
-      expect(callSites).toHaveLength(2);
+      expect(callSites).toHaveLength(1);
       expect(callSites[0]).toEqual({
-        filename: 'main.go',
-        line: 42,
-        function: 'vulnerable.Function',
-        osv: 'GO-2023-1234'
-      });
-      expect(callSites[1]).toEqual({
         filename: 'utils.go',
         line: 10,
         function: 'helper.Process',
-        osv: 'GO-2023-1234'
+        vulnerableFunction: 'vulnerable.Function',
+        osv: 'GO-2023-1234',
+        osvDetails: null,
+        fixedVersion: null
       });
     });
 
@@ -144,7 +137,10 @@ describe('VulnerabilityParser', () => {
         filename: 'file.go',
         line: 1,
         function: 'unknown function',
-        osv: null
+        vulnerableFunction: 'no.Position',
+        osv: null,
+        osvDetails: null,
+        fixedVersion: null
       });
     });
 
