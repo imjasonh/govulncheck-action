@@ -70,7 +70,7 @@ See [`.github/workflows/example.yml`](./.github/workflows/example.yml) for a com
 
 ## The Action In Action
 
-[example.yaml](https://github.com/imjasonh/govulncheck-action/actions/.github/workflows/example.yaml) demonstrates the action running on the vulnerable module in `./example`.
+[example.yaml](https://github.com/imjasonh/govulncheck-action/actions/workflows/example.yml) demonstrates the action running on the vulnerable module in `./example`.
 
 ## Development
 

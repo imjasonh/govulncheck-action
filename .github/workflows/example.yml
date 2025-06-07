@@ -7,7 +7,7 @@ on:
   workflow_dispatch:  # Allow manual triggering
 
 jobs:
-  check-example:
+  example:
     name: Check Example for Vulnerabilities
     runs-on: ubuntu-latest
     steps:
@@ -48,30 +48,3 @@ jobs:
           echo "In a real workflow, you might want to fail if vulnerabilities are found:"
           echo "if: steps.govulncheck.outputs.vulnerabilities-found == 'true'"
           echo "run: exit 1"
-
-  check-action-itself:
-    name: Check Action Code for Vulnerabilities
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: stable
-      
-      # Check if the action itself has any Go code with vulnerabilities
-      # This should pass since our action is written in JavaScript
-      - name: Run govulncheck on root
-        id: govulncheck-root
-        uses: ./
-        with:
-          working-directory: '.'
-        continue-on-error: true  # Don't fail if no go.mod found
-      
-      - name: Report results
-        if: always()
-        run: |
-          echo "Action code scan complete."
-          echo "Since this action is written in JavaScript, govulncheck won't find Go vulnerabilities here."
