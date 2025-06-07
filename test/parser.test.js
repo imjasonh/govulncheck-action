@@ -44,6 +44,89 @@ Another invalid line`;
       const vulnerabilities = parser.parse(output);
       expect(vulnerabilities).toHaveLength(1);
     });
+
+    it('should parse multi-line JSON objects', () => {
+      const output = `{
+  "finding": {
+    "osv": "GO-2023-1234",
+    "trace": [{"module": "example.com/vulnerable"}]
+  }
+}
+{
+  "finding": {
+    "osv": "GO-2023-5678",
+    "trace": [{"module": "another.com/package"}]
+  }
+}`;
+      
+      const vulnerabilities = parser.parse(output);
+      expect(vulnerabilities).toHaveLength(2);
+      expect(vulnerabilities[0].finding.osv).toBe('GO-2023-1234');
+      expect(vulnerabilities[1].finding.osv).toBe('GO-2023-5678');
+    });
+
+    it('should store and attach OSV details to vulnerabilities', () => {
+      const output = `
+        {"osv":{"id":"GO-2023-1234","summary":"Critical vulnerability","aliases":["CVE-2023-1234"]}}
+        {"finding":{"osv":"GO-2023-1234","trace":[{"module":"example.com/vulnerable"}]}}
+        {"osv":{"id":"GO-2023-5678","summary":"Another vulnerability"}}
+        {"finding":{"osv":"GO-2023-5678","trace":[{"module":"another.com/package"}]}}
+      `;
+      
+      const vulnerabilities = parser.parse(output);
+      
+      expect(vulnerabilities).toHaveLength(2);
+      expect(vulnerabilities[0].osvDetails).toEqual({
+        id: 'GO-2023-1234',
+        summary: 'Critical vulnerability',
+        aliases: ['CVE-2023-1234']
+      });
+      expect(vulnerabilities[1].osvDetails).toEqual({
+        id: 'GO-2023-5678',
+        summary: 'Another vulnerability'
+      });
+    });
+
+    it('should handle invalid JSON in multi-line format', () => {
+      const output = `{
+  "finding": {
+    "osv": "GO-2023-1234",
+    "trace": [{"module": "example.com/vulnerable"}]
+  }
+}
+{ invalid json
+{
+  "finding": {
+    "osv": "GO-2023-5678",
+    "trace": [{"module": "another.com/package"}]
+  }
+}`;
+      
+      const vulnerabilities = parser.parse(output);
+      expect(vulnerabilities).toHaveLength(2);
+    });
+
+    it('should parse OSV details in multi-line format', () => {
+      const output = `{
+  "osv": {
+    "id": "GO-2023-1234",
+    "summary": "Critical vulnerability"
+  }
+}
+{
+  "finding": {
+    "osv": "GO-2023-1234",
+    "trace": [{"module": "example.com/vulnerable"}]
+  }
+}`;
+      
+      const vulnerabilities = parser.parse(output);
+      expect(vulnerabilities).toHaveLength(1);
+      expect(vulnerabilities[0].osvDetails).toEqual({
+        id: 'GO-2023-1234',
+        summary: 'Critical vulnerability'
+      });
+    });
   });
 
   describe('extractUniqueModules', () => {

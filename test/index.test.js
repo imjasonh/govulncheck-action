@@ -215,4 +215,22 @@ describe('GitHub Action Integration', () => {
 
     expect(core.setFailed).toHaveBeenCalledWith('Annotation failed');
   });
+
+  it('should truncate output logging when output is large', async () => {
+    const largeOutput = 'x'.repeat(6000);
+    mockGovulncheck.run.mockResolvedValue({
+      output: largeOutput,
+      errorOutput: '',
+      exitCode: 0
+    });
+
+    await run({
+      govulncheck: mockGovulncheck,
+      parser: mockParser,
+      annotator: mockAnnotator
+    });
+
+    expect(core.info).toHaveBeenCalledWith('Raw govulncheck output length: 6000 characters');
+    expect(core.info).toHaveBeenCalledWith(`Raw output (first 1000 chars): ${'x'.repeat(1000)}...`);
+  });
 });
