@@ -8,7 +8,8 @@ describe('AnnotationCreator', () => {
 
   beforeEach(() => {
     mockCore = {
-      warning: jest.fn()
+      warning: jest.fn(),
+      info: jest.fn()
     };
     
     mockFs = {
@@ -99,10 +100,9 @@ require (
       expect(mockCore.warning).toHaveBeenCalledWith(
         'Vulnerable module: example.com/vulnerable (GO-2023-1234)',
         expect.objectContaining({
-          path: 'go.mod',
-          start_line: 6,
-          end_line: 6,
-          annotation_level: 'warning',
+          file: 'go.mod',
+          startLine: 6,
+          endLine: 6,
           title: 'Security Vulnerability'
         })
       );
@@ -110,9 +110,9 @@ require (
       expect(mockCore.warning).toHaveBeenCalledWith(
         'Vulnerable module: another.com/package (GO-2023-5678)',
         expect.objectContaining({
-          path: 'go.mod',
-          start_line: 7,
-          end_line: 7
+          file: 'go.mod',
+          startLine: 7,
+          endLine: 7
         })
       );
     });
@@ -165,10 +165,9 @@ require (
       expect(mockCore.warning).toHaveBeenCalledWith(
         'Vulnerable code path: vulnerable.Function (GO-2023-1234)',
         expect.objectContaining({
-          path: 'main.go',
-          start_line: 42,
-          end_line: 42,
-          annotation_level: 'warning',
+          file: 'main.go',
+          startLine: 42,
+          endLine: 42,
           title: 'Security Vulnerability'
         })
       );
@@ -176,9 +175,9 @@ require (
       expect(mockCore.warning).toHaveBeenCalledWith(
         'Vulnerable code path: helper.Process',
         expect.objectContaining({
-          path: 'utils.go',
-          start_line: 10,
-          end_line: 10
+          file: 'utils.go',
+          startLine: 10,
+          endLine: 10
         })
       );
     });

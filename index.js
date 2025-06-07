@@ -30,6 +30,14 @@ async function run(dependencies = {}) {
       core.warning(`govulncheck stderr: ${errorOutput}`);
     }
 
+    // Log raw output for debugging
+    core.info(`Raw govulncheck output length: ${output.length} characters`);
+    if (output.length < 5000) {
+      core.info(`Raw output: ${output}`);
+    } else {
+      core.info(`Raw output (first 1000 chars): ${output.substring(0, 1000)}...`);
+    }
+
     // Parse JSON output
     const vulnerabilities = parser.parse(output);
 
