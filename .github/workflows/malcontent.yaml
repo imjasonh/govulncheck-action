@@ -35,7 +35,7 @@ jobs:
       # NB: Could also set `fail-on-increase: false` and use `if: ${{steps.malcontent.outputs.risk-delta > 5}}` to allow some risk increase
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b #v3.29.0 - 11 Jun 2025
+        uses: github/codeql-action/upload-sarif@d6bbdef45e766d081b84a2def353b0055f728d3e #v3.29.0 - 11 Jun 2025
         if: always() # Upload even if the malcontent check fails
         with:
           sarif_file: ${{ steps.malcontent.outputs.sarif-file }}
