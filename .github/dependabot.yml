@@ -8,6 +8,10 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   # Enable version updates for npm
   - package-ecosystem: "npm"
@@ -17,3 +21,7 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"
