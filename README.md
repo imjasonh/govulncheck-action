@@ -42,11 +42,35 @@ jobs:
       - uses: imjasonh/govulncheck-action@v0.1
 ```
 
+### Multiple Directories
+
+To scan multiple directories, use comma-separated or space-delimited paths:
+
+```yaml
+- uses: imjasonh/govulncheck-action@v0.1
+  with:
+    working-directory: 'service1,service2,service3'
+```
+
+Or with spaces:
+
+```yaml
+- uses: imjasonh/govulncheck-action@v0.1
+  with:
+    working-directory: 'service1 service2 service3'
+```
+
+The action will:
+- Run govulncheck in each directory
+- Skip directories that don't exist (with a warning)
+- Filter out duplicate vulnerabilities across directories
+- Aggregate results from all directories
+
 ## Inputs
 
 | Input | Description | Default |
 |-------|-------------|---------|
-| `working-directory` | Directory to run govulncheck in | `.` |
+| `working-directory` | Directory or directories to run govulncheck in. Supports comma-separated or space-delimited paths (e.g., `"dir1,dir2"` or `"dir1 dir2"`). Duplicates are filtered, and non-existent directories are skipped with a warning. | `.` |
 
 ## Outputs
 

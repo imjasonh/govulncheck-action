@@ -4,7 +4,7 @@ author: 'Your Name'
 
 inputs:
   working-directory:
-    description: 'Directory to run govulncheck in'
+    description: 'Directory or directories to run govulncheck in. Supports comma-separated or space-delimited paths (e.g., "dir1,dir2" or "dir1 dir2"). Duplicates are filtered, and non-existent directories are skipped with a warning.'
     required: false
     default: '.'
 
