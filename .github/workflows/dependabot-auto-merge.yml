@@ -5,6 +5,7 @@ on: pull_request
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 jobs:
   dependabot:
@@ -28,6 +29,7 @@ jobs:
         run: npm run build
 
       - name: Commit and push changes
+        id: commit
         run: |
           if [ -n "$(git status --porcelain dist/)" ]; then
             git config --global user.name "dependabot[bot]"
@@ -35,7 +37,14 @@ jobs:
             git add dist/
             git commit -m "chore: rebuild dist"
             git push
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Trigger CI
+        if: steps.commit.outputs.pushed == 'true'
+        run: gh workflow run ci.yml --ref ${{ github.event.pull_request.head.ref }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge for Dependabot PRs
         run: gh pr merge --auto --squash "$PR_URL"
