@@ -1,4 +1,5 @@
-const SummaryGenerator = require('../lib/summary');
+import SummaryGenerator from '../lib/summary.js';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 describe('SummaryGenerator', () => {
   let summaryGenerator;
@@ -15,16 +16,16 @@ describe('SummaryGenerator', () => {
       addTable: jest.fn().mockReturnThis(),
       addLink: jest.fn().mockReturnThis(),
       addSeparator: jest.fn().mockReturnThis(),
-      write: jest.fn().mockResolvedValue()
+      write: jest.fn().mockResolvedValue(),
     };
 
     mockCore = {
-      summary: mockSummary
+      summary: mockSummary,
     };
 
     mockParser = {
       extractUniqueModules: jest.fn(),
-      extractCallSites: jest.fn()
+      extractCallSites: jest.fn(),
     };
 
     summaryGenerator = new SummaryGenerator(mockCore);
@@ -48,22 +49,22 @@ describe('SummaryGenerator', () => {
           finding: {
             osv: 'GO-2023-5678',
             trace: [{ module: 'example.com/vulnerable', version: 'v1.0.0' }],
-            fixed_version: 'v1.2.3'
+            fixed_version: 'v1.2.3',
           },
           osvDetails: {
-            summary: 'Second vulnerability'
-          }
+            summary: 'Second vulnerability',
+          },
         },
         {
           finding: {
             osv: 'GO-2023-1234',
             trace: [{ module: 'example.com/vulnerable', version: 'v1.0.0' }],
-            fixed_version: 'v1.2.3'
+            fixed_version: 'v1.2.3',
           },
           osvDetails: {
-            summary: 'First vulnerability'
-          }
-        }
+            summary: 'First vulnerability',
+          },
+        },
       ];
 
       mockParser.extractUniqueModules.mockReturnValue(['example.com/vulnerable']);
@@ -83,13 +84,13 @@ describe('SummaryGenerator', () => {
           finding: {
             osv: 'GO-2023-1234',
             trace: [{ module: 'example.com/vulnerable', version: 'v1.0.0' }],
-            fixed_version: 'v1.2.3'
+            fixed_version: 'v1.2.3',
           },
           osvDetails: {
             summary: 'Critical vulnerability',
-            aliases: ['CVE-2023-1234', 'GHSA-xxxx-yyyy', 'CVE-2023-5678']
-          }
-        }
+            aliases: ['CVE-2023-1234', 'GHSA-xxxx-yyyy', 'CVE-2023-5678'],
+          },
+        },
       ];
 
       mockParser.extractUniqueModules.mockReturnValue(['example.com/vulnerable']);
@@ -106,9 +107,9 @@ describe('SummaryGenerator', () => {
         {
           finding: {
             osv: 'GO-2023-1234',
-            trace: [{ module: 'example.com/vulnerable', version: 'v1.0.0' }]
-          }
-        }
+            trace: [{ module: 'example.com/vulnerable', version: 'v1.0.0' }],
+          },
+        },
       ];
 
       const callSites = [
@@ -116,14 +117,14 @@ describe('SummaryGenerator', () => {
           filename: 'main.go',
           line: 42,
           vulnerableFunction: 'vulnerable.Function',
-          osv: 'GO-2023-1234'
+          osv: 'GO-2023-1234',
         },
         {
           filename: 'utils.go',
           line: 10,
           vulnerableFunction: 'helper.Process',
-          osv: 'GO-2023-5678'
-        }
+          osv: 'GO-2023-5678',
+        },
       ];
 
       mockParser.extractUniqueModules.mockReturnValue(['example.com/vulnerable']);
@@ -134,7 +135,10 @@ describe('SummaryGenerator', () => {
       expect(mockSummary.addHeading).toHaveBeenCalledWith('🚨 Vulnerable Code Locations', 2);
       expect(mockSummary.addHeading).toHaveBeenCalledWith('📄 main.go', 3);
       expect(mockSummary.addRaw).toHaveBeenCalledWith('• Line 42: calls vulnerable.Function');
-      expect(mockSummary.addLink).toHaveBeenCalledWith('GO-2023-1234', 'https://pkg.go.dev/vuln/GO-2023-1234');
+      expect(mockSummary.addLink).toHaveBeenCalledWith(
+        'GO-2023-1234',
+        'https://pkg.go.dev/vuln/GO-2023-1234'
+      );
     });
 
     it('should handle call sites in subdirectory', async () => {
@@ -142,9 +146,9 @@ describe('SummaryGenerator', () => {
         {
           finding: {
             osv: 'GO-2023-1234',
-            trace: [{ module: 'example.com/vulnerable', version: 'v1.0.0' }]
-          }
-        }
+            trace: [{ module: 'example.com/vulnerable', version: 'v1.0.0' }],
+          },
+        },
       ];
 
       const callSites = [
@@ -152,8 +156,8 @@ describe('SummaryGenerator', () => {
           filename: 'main.go',
           line: 42,
           vulnerableFunction: 'vulnerable.Function',
-          osv: 'GO-2023-1234'
-        }
+          osv: 'GO-2023-1234',
+        },
       ];
 
       mockParser.extractUniqueModules.mockReturnValue(['example.com/vulnerable']);
@@ -170,33 +174,36 @@ describe('SummaryGenerator', () => {
           finding: {
             osv: 'GO-2023-1234',
             trace: [{ module: 'example.com/vulnerable', version: 'v1.0.0' }],
-            fixed_version: 'v1.2.0'
-          }
+            fixed_version: 'v1.2.0',
+          },
         },
         {
           finding: {
             osv: 'GO-2023-5678',
             trace: [{ module: 'example.com/vulnerable', version: 'v1.0.0' }],
-            fixed_version: 'v1.2.3'
-          }
+            fixed_version: 'v1.2.3',
+          },
         },
         {
           finding: {
             osv: 'GO-2023-9999',
             trace: [{ module: 'another.com/package', version: 'v2.0.0' }],
-            fixed_version: 'v2.1.0'
-          }
-        }
+            fixed_version: 'v2.1.0',
+          },
+        },
       ];
 
-      mockParser.extractUniqueModules.mockReturnValue(['example.com/vulnerable', 'another.com/package']);
+      mockParser.extractUniqueModules.mockReturnValue([
+        'example.com/vulnerable',
+        'another.com/package',
+      ]);
       mockParser.extractCallSites.mockReturnValue([]);
 
       await summaryGenerator.generateSummary(vulnerabilities, mockParser, '.');
 
       expect(mockSummary.addList).toHaveBeenCalledWith([
         'Update another.com/package to version v2.1.0 or later',
-        'Update example.com/vulnerable to version v1.2.3 or later'
+        'Update example.com/vulnerable to version v1.2.3 or later',
       ]);
     });
 
@@ -205,9 +212,9 @@ describe('SummaryGenerator', () => {
         {
           finding: {
             osv: 'GO-2023-1234',
-            trace: [{ module: 'example.com/vulnerable', version: 'v1.0.0' }]
-          }
-        }
+            trace: [{ module: 'example.com/vulnerable', version: 'v1.0.0' }],
+          },
+        },
       ];
 
       mockParser.extractUniqueModules.mockReturnValue(['example.com/vulnerable']);
@@ -215,16 +222,18 @@ describe('SummaryGenerator', () => {
 
       await summaryGenerator.generateSummary(vulnerabilities, mockParser, '.');
 
-      expect(mockSummary.addRaw).toHaveBeenCalledWith('No specific version recommendations available.');
+      expect(mockSummary.addRaw).toHaveBeenCalledWith(
+        'No specific version recommendations available.'
+      );
     });
 
     it('should handle vulnerabilities without trace data', async () => {
       const vulnerabilities = [
         {
           finding: {
-            osv: 'GO-2023-1234'
-          }
-        }
+            osv: 'GO-2023-1234',
+          },
+        },
       ];
 
       mockParser.extractUniqueModules.mockReturnValue([]);

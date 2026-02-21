@@ -1,4 +1,5 @@
-const VulnerabilityParser = require('../lib/parser');
+import VulnerabilityParser from '../lib/parser.js';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 
 describe('VulnerabilityParser', () => {
   let parser;
@@ -14,9 +15,9 @@ describe('VulnerabilityParser', () => {
         {"finding":{"osv":"GO-2023-5678","trace":[{"module":"another.com/package"}]}}
         {"progress":"scanning packages"}
       `;
-      
+
       const vulnerabilities = parser.parse(output);
-      
+
       expect(vulnerabilities).toHaveLength(2);
       expect(vulnerabilities[0].finding.osv).toBe('GO-2023-1234');
       expect(vulnerabilities[1].finding.osv).toBe('GO-2023-5678');
@@ -31,7 +32,7 @@ describe('VulnerabilityParser', () => {
       const output = `Invalid JSON line
 {"finding":{"osv":"GO-2023-1234","trace":[{"module":"example.com/vulnerable"}]}}
 Another invalid line`;
-      
+
       const vulnerabilities = parser.parse(output);
       expect(vulnerabilities).toHaveLength(1);
     });
@@ -40,7 +41,7 @@ Another invalid line`;
       const output = `{"progress":"scanning packages"}
 {"config":{"db":"latest"}}
 {"finding":{"osv":"GO-2023-1234","trace":[{"module":"example.com/vulnerable"}]}}`;
-      
+
       const vulnerabilities = parser.parse(output);
       expect(vulnerabilities).toHaveLength(1);
     });
@@ -58,7 +59,7 @@ Another invalid line`;
     "trace": [{"module": "another.com/package"}]
   }
 }`;
-      
+
       const vulnerabilities = parser.parse(output);
       expect(vulnerabilities).toHaveLength(2);
       expect(vulnerabilities[0].finding.osv).toBe('GO-2023-1234');
@@ -72,18 +73,18 @@ Another invalid line`;
         {"osv":{"id":"GO-2023-5678","summary":"Another vulnerability"}}
         {"finding":{"osv":"GO-2023-5678","trace":[{"module":"another.com/package"}]}}
       `;
-      
+
       const vulnerabilities = parser.parse(output);
-      
+
       expect(vulnerabilities).toHaveLength(2);
       expect(vulnerabilities[0].osvDetails).toEqual({
         id: 'GO-2023-1234',
         summary: 'Critical vulnerability',
-        aliases: ['CVE-2023-1234']
+        aliases: ['CVE-2023-1234'],
       });
       expect(vulnerabilities[1].osvDetails).toEqual({
         id: 'GO-2023-5678',
-        summary: 'Another vulnerability'
+        summary: 'Another vulnerability',
       });
     });
 
@@ -101,7 +102,7 @@ Another invalid line`;
     "trace": [{"module": "another.com/package"}]
   }
 }`;
-      
+
       const vulnerabilities = parser.parse(output);
       expect(vulnerabilities).toHaveLength(2);
     });
@@ -119,12 +120,12 @@ Another invalid line`;
     "trace": [{"module": "example.com/vulnerable"}]
   }
 }`;
-      
+
       const vulnerabilities = parser.parse(output);
       expect(vulnerabilities).toHaveLength(1);
       expect(vulnerabilities[0].osvDetails).toEqual({
         id: 'GO-2023-1234',
-        summary: 'Critical vulnerability'
+        summary: 'Critical vulnerability',
       });
     });
   });
@@ -134,18 +135,18 @@ Another invalid line`;
       const vulnerabilities = [
         {
           finding: {
-            trace: [{ module: 'example.com/vulnerable' }, { module: 'other.com/pkg' }]
-          }
+            trace: [{ module: 'example.com/vulnerable' }, { module: 'other.com/pkg' }],
+          },
         },
         {
           finding: {
-            trace: [{ module: 'example.com/vulnerable' }, { module: 'third.com/lib' }]
-          }
-        }
+            trace: [{ module: 'example.com/vulnerable' }, { module: 'third.com/lib' }],
+          },
+        },
       ];
-      
+
       const modules = parser.extractUniqueModules(vulnerabilities);
-      
+
       expect(modules).toEqual(['example.com/vulnerable']);
     });
 
@@ -158,9 +159,9 @@ Another invalid line`;
       const vulnerabilities = [
         { finding: {} },
         { finding: { trace: [] } },
-        { finding: { trace: [{}] } }
+        { finding: { trace: [{}] } },
       ];
-      
+
       const modules = parser.extractUniqueModules(vulnerabilities);
       expect(modules).toEqual([]);
     });
@@ -175,19 +176,19 @@ Another invalid line`;
             trace: [
               {
                 position: { filename: 'main.go', line: 42 },
-                function: 'vulnerable.Function'
+                function: 'vulnerable.Function',
               },
               {
                 position: { filename: 'utils.go', line: 10 },
-                function: 'helper.Process'
-              }
-            ]
-          }
-        }
+                function: 'helper.Process',
+              },
+            ],
+          },
+        },
       ];
-      
+
       const callSites = parser.extractCallSites(vulnerabilities);
-      
+
       expect(callSites).toHaveLength(1);
       expect(callSites[0]).toEqual({
         filename: 'utils.go',
@@ -196,7 +197,7 @@ Another invalid line`;
         vulnerableFunction: 'vulnerable.Function',
         osv: 'GO-2023-1234',
         osvDetails: null,
-        fixedVersion: null
+        fixedVersion: null,
       });
     });
 
@@ -207,14 +208,14 @@ Another invalid line`;
             trace: [
               { function: 'no.Position' },
               { position: {} },
-              { position: { filename: 'file.go' } }
-            ]
-          }
-        }
+              { position: { filename: 'file.go' } },
+            ],
+          },
+        },
       ];
-      
+
       const callSites = parser.extractCallSites(vulnerabilities);
-      
+
       expect(callSites).toHaveLength(1);
       expect(callSites[0]).toEqual({
         filename: 'file.go',
@@ -223,7 +224,7 @@ Another invalid line`;
         vulnerableFunction: 'no.Position',
         osv: null,
         osvDetails: null,
-        fixedVersion: null
+        fixedVersion: null,
       });
     });
 

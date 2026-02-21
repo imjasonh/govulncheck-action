@@ -1,35 +1,11 @@
-const { run } = require('../index');
-const core = require('@actions/core');
-
-// Mock the @actions/core module
-jest.mock('@actions/core', () => {
-  const mockSummary = {
-    addHeading: jest.fn().mockReturnThis(),
-    addEOL: jest.fn().mockReturnThis(),
-    addRaw: jest.fn().mockReturnThis(),
-    addList: jest.fn().mockReturnThis(),
-    addTable: jest.fn().mockReturnThis(),
-    addCodeBlock: jest.fn().mockReturnThis(),
-    addDetails: jest.fn().mockReturnThis(),
-    addLink: jest.fn().mockReturnThis(),
-    addSeparator: jest.fn().mockReturnThis(),
-    write: jest.fn().mockResolvedValue()
-  };
-  
-  return {
-    getInput: jest.fn(),
-    info: jest.fn(),
-    warning: jest.fn(),
-    setOutput: jest.fn(),
-    setFailed: jest.fn(),
-    summary: mockSummary
-  };
-});
+import { run } from '../index.js';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 
 describe('GitHub Action Integration', () => {
   let mockGovulncheck;
   let mockParser;
   let mockAnnotator;
+  let mockCore;
   let originalChdir;
 
   beforeEach(() => {
@@ -40,8 +16,28 @@ describe('GitHub Action Integration', () => {
     // Reset all mocks
     jest.clearAllMocks();
 
-    // Set default input values
-    core.getInput.mockReturnValue('.');
+    // Create mock core
+    const mockSummary = {
+      addHeading: jest.fn().mockReturnThis(),
+      addEOL: jest.fn().mockReturnThis(),
+      addRaw: jest.fn().mockReturnThis(),
+      addList: jest.fn().mockReturnThis(),
+      addTable: jest.fn().mockReturnThis(),
+      addCodeBlock: jest.fn().mockReturnThis(),
+      addDetails: jest.fn().mockReturnThis(),
+      addLink: jest.fn().mockReturnThis(),
+      addSeparator: jest.fn().mockReturnThis(),
+      write: jest.fn().mockResolvedValue(),
+    };
+
+    mockCore = {
+      getInput: jest.fn().mockReturnValue('.'),
+      info: jest.fn(),
+      warning: jest.fn(),
+      setOutput: jest.fn(),
+      setFailed: jest.fn(),
+      summary: mockSummary,
+    };
 
     // Create mock dependencies
     mockGovulncheck = {
@@ -49,18 +45,18 @@ describe('GitHub Action Integration', () => {
       run: jest.fn().mockResolvedValue({
         output: '',
         errorOutput: '',
-        exitCode: 0
-      })
+        exitCode: 0,
+      }),
     };
 
     mockParser = {
       parse: jest.fn().mockReturnValue([]),
       extractUniqueModules: jest.fn().mockReturnValue([]),
-      extractCallSites: jest.fn().mockReturnValue([])
+      extractCallSites: jest.fn().mockReturnValue([]),
     };
 
     mockAnnotator = {
-      createAnnotations: jest.fn().mockResolvedValue()
+      createAnnotations: jest.fn().mockResolvedValue(),
     };
   });
 
@@ -71,24 +67,25 @@ describe('GitHub Action Integration', () => {
 
   it('should complete successfully with no vulnerabilities', async () => {
     const result = await run({
+      core: mockCore,
       govulncheck: mockGovulncheck,
       parser: mockParser,
-      annotator: mockAnnotator
+      annotator: mockAnnotator,
     });
 
-    expect(core.info).toHaveBeenCalledWith('Running govulncheck...');
-    expect(core.info).toHaveBeenCalledWith('Raw govulncheck output length: 0 characters');
-    expect(core.info).toHaveBeenCalledWith('Raw output: ');
+    expect(mockCore.info).toHaveBeenCalledWith('Running govulncheck...');
+    expect(mockCore.info).toHaveBeenCalledWith('Raw govulncheck output length: 0 characters');
+    expect(mockCore.info).toHaveBeenCalledWith('Raw output: ');
 
     expect(mockGovulncheck.install).toHaveBeenCalled();
     expect(mockGovulncheck.run).toHaveBeenCalled();
 
-    expect(core.setOutput).toHaveBeenCalledWith('vulnerabilities-found', 'false');
-    expect(core.setOutput).toHaveBeenCalledWith('vulnerability-count', '0');
+    expect(mockCore.setOutput).toHaveBeenCalledWith('vulnerabilities-found', 'false');
+    expect(mockCore.setOutput).toHaveBeenCalledWith('vulnerability-count', '0');
 
     expect(result).toEqual({
       vulnerabilities: [],
-      hasVulnerabilities: false
+      hasVulnerabilities: false,
     });
   });
 
@@ -97,28 +94,29 @@ describe('GitHub Action Integration', () => {
       {
         finding: {
           osv: 'GO-2023-1234',
-          trace: [{ module: 'example.com/vulnerable' }]
-        }
+          trace: [{ module: 'example.com/vulnerable' }],
+        },
       },
       {
         finding: {
           osv: 'GO-2023-5678',
-          trace: [{ module: 'another.com/package' }]
-        }
-      }
+          trace: [{ module: 'another.com/package' }],
+        },
+      },
     ];
 
     mockParser.parse.mockReturnValue(mockVulnerabilities);
 
     const result = await run({
+      core: mockCore,
       govulncheck: mockGovulncheck,
       parser: mockParser,
-      annotator: mockAnnotator
+      annotator: mockAnnotator,
     });
 
-    expect(core.warning).toHaveBeenCalledWith('Found 2 vulnerabilities');
-    expect(core.setOutput).toHaveBeenCalledWith('vulnerabilities-found', 'true');
-    expect(core.setOutput).toHaveBeenCalledWith('vulnerability-count', '2');
+    expect(mockCore.warning).toHaveBeenCalledWith('Found 2 vulnerabilities');
+    expect(mockCore.setOutput).toHaveBeenCalledWith('vulnerabilities-found', 'true');
+    expect(mockCore.setOutput).toHaveBeenCalledWith('vulnerability-count', '2');
 
     expect(mockAnnotator.createAnnotations).toHaveBeenCalledWith(
       mockVulnerabilities,
@@ -128,29 +126,31 @@ describe('GitHub Action Integration', () => {
 
     expect(result).toEqual({
       vulnerabilities: mockVulnerabilities,
-      hasVulnerabilities: true
+      hasVulnerabilities: true,
     });
   });
 
   it('should change to working directory if specified', async () => {
-    core.getInput.mockReturnValue('./subfolder');
+    mockCore.getInput.mockReturnValue('./subfolder');
 
     await run({
+      core: mockCore,
       govulncheck: mockGovulncheck,
       parser: mockParser,
-      annotator: mockAnnotator
+      annotator: mockAnnotator,
     });
 
     expect(process.chdir).toHaveBeenCalledWith('./subfolder');
   });
 
   it('should not change directory for default value', async () => {
-    core.getInput.mockReturnValue('.');
+    mockCore.getInput.mockReturnValue('.');
 
     await run({
+      core: mockCore,
       govulncheck: mockGovulncheck,
       parser: mockParser,
-      annotator: mockAnnotator
+      annotator: mockAnnotator,
     });
 
     expect(process.chdir).not.toHaveBeenCalled();
@@ -160,16 +160,17 @@ describe('GitHub Action Integration', () => {
     mockGovulncheck.run.mockResolvedValue({
       output: '',
       errorOutput: 'warning: using database from 2023-01-01',
-      exitCode: 0
+      exitCode: 0,
     });
 
     await run({
+      core: mockCore,
       govulncheck: mockGovulncheck,
       parser: mockParser,
-      annotator: mockAnnotator
+      annotator: mockAnnotator,
     });
 
-    expect(core.warning).toHaveBeenCalledWith(
+    expect(mockCore.warning).toHaveBeenCalledWith(
       'govulncheck stderr: warning: using database from 2023-01-01'
     );
   });
@@ -178,41 +179,50 @@ describe('GitHub Action Integration', () => {
     mockGovulncheck.run.mockResolvedValue({
       output: '{"config": {}}',
       errorOutput: 'missing go.sum entry for module providing package golang.org/x/net/html',
-      exitCode: 1
+      exitCode: 1,
     });
 
-    await expect(run({
-      govulncheck: mockGovulncheck,
-      parser: mockParser,
-      annotator: mockAnnotator
-    })).rejects.toThrow('govulncheck failed due to missing dependencies');
+    await expect(
+      run({
+        core: mockCore,
+        govulncheck: mockGovulncheck,
+        parser: mockParser,
+        annotator: mockAnnotator,
+      })
+    ).rejects.toThrow('govulncheck failed due to missing dependencies');
   });
 
   it('should fail when imports cannot be resolved', async () => {
     mockGovulncheck.run.mockResolvedValue({
       output: '{"config": {}}',
       errorOutput: 'could not import golang.org/x/net/html (invalid package name: "")',
-      exitCode: 1
+      exitCode: 1,
     });
 
-    await expect(run({
-      govulncheck: mockGovulncheck,
-      parser: mockParser,
-      annotator: mockAnnotator
-    })).rejects.toThrow('govulncheck failed due to missing dependencies');
+    await expect(
+      run({
+        core: mockCore,
+        govulncheck: mockGovulncheck,
+        parser: mockParser,
+        annotator: mockAnnotator,
+      })
+    ).rejects.toThrow('govulncheck failed due to missing dependencies');
   });
 
   it('should handle errors and set action as failed', async () => {
     const error = new Error('Failed to install govulncheck');
     mockGovulncheck.install.mockRejectedValue(error);
 
-    await expect(run({
-      govulncheck: mockGovulncheck,
-      parser: mockParser,
-      annotator: mockAnnotator
-    })).rejects.toThrow('Failed to install govulncheck');
+    await expect(
+      run({
+        core: mockCore,
+        govulncheck: mockGovulncheck,
+        parser: mockParser,
+        annotator: mockAnnotator,
+      })
+    ).rejects.toThrow('Failed to install govulncheck');
 
-    expect(core.setFailed).toHaveBeenCalledWith('Failed to install govulncheck');
+    expect(mockCore.setFailed).toHaveBeenCalledWith('Failed to install govulncheck');
   });
 
   it('should handle parsing errors', async () => {
@@ -221,13 +231,16 @@ describe('GitHub Action Integration', () => {
       throw error;
     });
 
-    await expect(run({
-      govulncheck: mockGovulncheck,
-      parser: mockParser,
-      annotator: mockAnnotator
-    })).rejects.toThrow('Invalid JSON output');
+    await expect(
+      run({
+        core: mockCore,
+        govulncheck: mockGovulncheck,
+        parser: mockParser,
+        annotator: mockAnnotator,
+      })
+    ).rejects.toThrow('Invalid JSON output');
 
-    expect(core.setFailed).toHaveBeenCalledWith('Invalid JSON output');
+    expect(mockCore.setFailed).toHaveBeenCalledWith('Invalid JSON output');
   });
 
   it('should handle annotation errors gracefully', async () => {
@@ -235,13 +248,16 @@ describe('GitHub Action Integration', () => {
     mockParser.parse.mockReturnValue(mockVulnerabilities);
     mockAnnotator.createAnnotations.mockRejectedValue(new Error('Annotation failed'));
 
-    await expect(run({
-      govulncheck: mockGovulncheck,
-      parser: mockParser,
-      annotator: mockAnnotator
-    })).rejects.toThrow('Annotation failed');
+    await expect(
+      run({
+        core: mockCore,
+        govulncheck: mockGovulncheck,
+        parser: mockParser,
+        annotator: mockAnnotator,
+      })
+    ).rejects.toThrow('Annotation failed');
 
-    expect(core.setFailed).toHaveBeenCalledWith('Annotation failed');
+    expect(mockCore.setFailed).toHaveBeenCalledWith('Annotation failed');
   });
 
   it('should truncate output logging when output is large', async () => {
@@ -249,16 +265,19 @@ describe('GitHub Action Integration', () => {
     mockGovulncheck.run.mockResolvedValue({
       output: largeOutput,
       errorOutput: '',
-      exitCode: 0
+      exitCode: 0,
     });
 
     await run({
+      core: mockCore,
       govulncheck: mockGovulncheck,
       parser: mockParser,
-      annotator: mockAnnotator
+      annotator: mockAnnotator,
     });
 
-    expect(core.info).toHaveBeenCalledWith('Raw govulncheck output length: 6000 characters');
-    expect(core.info).toHaveBeenCalledWith(`Raw output (first 1000 chars): ${'x'.repeat(1000)}...`);
+    expect(mockCore.info).toHaveBeenCalledWith('Raw govulncheck output length: 6000 characters');
+    expect(mockCore.info).toHaveBeenCalledWith(
+      `Raw output (first 1000 chars): ${'x'.repeat(1000)}...`
+    );
   });
 });
