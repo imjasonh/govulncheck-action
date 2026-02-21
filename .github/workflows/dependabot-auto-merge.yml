@@ -1,6 +1,8 @@
 name: Dependabot auto-merge
 
-on: pull_request
+on:
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -10,11 +12,11 @@ permissions:
 jobs:
   dependabot:
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]'
+    if: ${{ github.actor == 'dependabot[bot]' || startsWith(github.head_ref || github.ref_name, 'dependabot/') }}
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -42,12 +44,12 @@ jobs:
 
       - name: Trigger CI
         if: steps.commit.outputs.pushed == 'true'
-        run: gh workflow run ci.yml --ref ${{ github.event.pull_request.head.ref }}
+        run: gh workflow run ci.yml --ref ${{ github.event.pull_request.head.ref || github.ref_name }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge for Dependabot PRs
         run: gh pr merge --auto --squash "$PR_URL"
         env:
-          PR_URL: ${{github.event.pull_request.html_url}}
+          PR_URL: ${{ github.event.pull_request.html_url || github.ref_name }}
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
