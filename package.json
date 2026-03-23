@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.27.4",
-    "eslint": "^10.0.3",
+    "eslint": "^10.1.0",
     "husky": "^9.1.7",
     "jest": "^30.3.0",
     "license-checker": "^25.0.1",
