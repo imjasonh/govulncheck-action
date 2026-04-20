@@ -8,7 +8,7 @@
 │  ├─ repository: https://github.com/actions/toolkit
 │  ├─ path: /home/runner/work/govulncheck-action/govulncheck-action/node_modules/@actions/exec
 │  └─ licenseFile: /home/runner/work/govulncheck-action/govulncheck-action/node_modules/@actions/exec/LICENSE.md
-├─ @actions/github@9.0.0
+├─ @actions/github@9.1.0
 │  ├─ licenses: MIT
 │  ├─ repository: https://github.com/actions/toolkit
 │  ├─ path: /home/runner/work/govulncheck-action/govulncheck-action/node_modules/@actions/github
