@@ -26,18 +26,18 @@
   "author": "",
   "license": "Apache-2.0",
   "dependencies": {
-    "@actions/core": "^3.0.0",
+    "@actions/core": "^3.0.1",
     "@actions/exec": "^3.0.0",
-    "@actions/github": "^9.0.0"
+    "@actions/github": "^9.1.1"
   },
   "devDependencies": {
     "esbuild": "^0.28.0",
-    "eslint": "^10.2.0",
+    "eslint": "^10.4.1",
     "husky": "^9.1.7",
-    "jest": "^30.3.0",
+    "jest": "^30.4.2",
     "license-checker": "^25.0.1",
-    "lint-staged": "^16.4.0",
-    "prettier": "^3.7.4"
+    "lint-staged": "^17.0.7",
+    "prettier": "^3.8.3"
   },
   "jest": {
     "testEnvironment": "node",
